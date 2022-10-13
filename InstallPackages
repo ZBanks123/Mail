@@ -1,0 +1,44 @@
+- name: RedHat - End unsupported versions
+  meta: end_host
+  when: (ansible_distribution == 'CentOS' and ansible_distribution_major_version|int <= 8) or ansible_distribution == 'OracleLinux'
+
+- name: disable
+  shell: subscription-manager repos --disable fast-datapath-for-rhel-8-x86_64-rpms  
+
+- name: enable
+  shell: subscription-manager repos --enable fast-datapath-for-rhel-8-x86_64-rpms
+
+- name: Install Dependencies(RHEL)
+  yum:
+    name: "{{ item }}"
+    state: present
+    releasever: "{{ ansible_distribution_version }}"
+  with_items:
+    - mailx
+    - sendmail-cf
+    - sendmail
+  notify:
+    - Enable sendmail service    
+  when: ansible_distribution == "RedHat" or ansible_distribution == "Scientific"
+    
+- name: Install Dependencies(Debian)
+  package:
+    name: sendmail
+    state: present
+  notify:
+    - Enable sendmail service 
+  when: ansible_os_family == "Debian"
+       
+- name: Point to BLANK URL
+  lineinfile:
+    path: /etc/mail/sendmail.cf
+    regexp: '^DS'
+    line: "DS {{ relay_server }}"
+  notify:
+    - Restart sendmail service
+   
+- name: Set up root mailing list
+  lineinfile:
+    path: /etc/aliases
+    regexp: '^root'
+    line: "root: istunix_alerts@test.com"
